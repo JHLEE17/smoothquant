@@ -4,6 +4,9 @@ import torch.nn as nn
 from transformers.models.opt.modeling_opt import OPTDecoderLayer
 from transformers.models.bloom.modeling_bloom import BloomBlock
 
+# from timm.models.vision_transformer import VisionTransformer
+# from timm.models.vision_transformer import Attention
+
 
 @torch.no_grad()
 def smooth_ln_fcs(ln, fcs, act_scales, alpha=0.5):
@@ -33,6 +36,8 @@ def smooth_ln_fcs(ln, fcs, act_scales, alpha=0.5):
 @torch.no_grad()
 def smooth_lm(model, scales, alpha=0.5):
     for name, module in model.named_modules():
+        print('Name: ', name)
+        print('Module: ', module)
         if isinstance(module, OPTDecoderLayer):
             attn_ln = module.self_attn_layer_norm
             qkv = [module.self_attn.q_proj,
@@ -54,3 +59,34 @@ def smooth_lm(model, scales, alpha=0.5):
             fc1 = module.mlp.dense_h_to_4h
             fc1_input_scales = scales[name + '.mlp.dense_h_to_4h']
             smooth_ln_fcs(ffn_ln, fc1, fc1_input_scales, alpha)
+
+@torch.no_grad()
+def smooth_vit(model, scales, alpha=0.5, model_name='deit_'):
+    if 'deit_' in model_name:
+        print('DeiT_smooth')
+        for i in range(len(model.blocks)):
+            print(i)
+            attn_ln = model.blocks[i].norm1
+            qkv = model.blocks[i].attn.qkv
+            qkv_input_scales = scales["model.blocks[%d].attn.qkv" %i]
+            smooth_ln_fcs(attn_ln, qkv, qkv_input_scales, alpha)
+            
+            # proj = model.blocks[i].attn.proj
+            # proj_input_scales = scales["model.blocks[%d].attn.proj" %i]
+            # smooth_ln_fcs(attn_ln, proj, proj_input_scales, alpha)
+            
+            mlp_ln = model.blocks[i].norm2
+            fc1 = model.blocks[i].mlp.fc1
+            fc1_input_scales = scales["model.blocks[%d].mlp.fc1" %i]
+            smooth_ln_fcs(mlp_ln, fc1, fc1_input_scales, alpha)           
+            
+            # fc2 = model.blocks[i].mlp.fc2
+            # fc2_input_scales = scales["model.blocks[%d].mlp.fc2" %i]
+            # smooth_ln_fcs(mlp_ln, fc2, fc2_input_scales, alpha)       
+            
+    elif 'mobilevit_' in model_name:
+        print('MobileViT_smooth')
+        for i in range(len(model.stages)):
+            print('i: ', i)
+            for j in range(len(model.stages[i])):
+                print('j: ', j)

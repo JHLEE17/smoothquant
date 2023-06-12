@@ -69,7 +69,7 @@ class W8A8Linear(nn.Module):
         else:
             raise ValueError(f'Invalid act_quant: {act_quant}')
 
-        if quantize_output:
+        if quantize_output: #True
             self.output_quant_name = self.act_quant_name
             self.output_quant = self.act_quant
         else:
